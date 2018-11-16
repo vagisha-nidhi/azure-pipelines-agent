@@ -135,6 +135,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     ArgUtil.NotNullOrEmpty(ExecutionContext.Container.ContainerId, nameof(ExecutionContext.Container.ContainerId));
                     var containerStepHost = HostContext.CreateService<IContainerStepHost>();
                     containerStepHost.Container = ExecutionContext.Container;
+                    containerStepHost.PrependPath = ExecutionContext.PrependPath;
                     stepHost = containerStepHost;
                 }
                 else
