@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -26,12 +28,12 @@ namespace Agent.PluginHost
 
             try
             {
-                ArgUtil.NotNull(args, nameof(args));
-                ArgUtil.Equal(2, args.Length, nameof(args.Length));
-
                 string pluginType = args[0];
                 if (string.Equals("task", pluginType, StringComparison.OrdinalIgnoreCase))
                 {
+                    ArgUtil.NotNull(args, nameof(args));
+                    ArgUtil.Equal(2, args.Length, nameof(args.Length));
+
                     string assemblyQualifiedName = args[1];
                     ArgUtil.NotNullOrEmpty(assemblyQualifiedName, nameof(assemblyQualifiedName));
 
@@ -76,6 +78,9 @@ namespace Agent.PluginHost
                 }
                 else if (string.Equals("command", pluginType, StringComparison.OrdinalIgnoreCase))
                 {
+                    ArgUtil.NotNull(args, nameof(args));
+                    ArgUtil.Equal(2, args.Length, nameof(args.Length));
+
                     string assemblyQualifiedName = args[1];
                     ArgUtil.NotNullOrEmpty(assemblyQualifiedName, nameof(assemblyQualifiedName));
 
@@ -104,6 +109,54 @@ namespace Agent.PluginHost
                     }
 
                     return 0;
+                }
+                else if (string.Equals("logging", pluginType, StringComparison.OrdinalIgnoreCase))
+                {
+                    ArgUtil.NotNull(args, nameof(args));
+
+                    List<string> loggingPlugins = new List<string>();
+                    for (int index = 1; index < args.Length; index++)
+                    {
+                        string assemblyQualifiedName = args[index];
+                        ArgUtil.NotNullOrEmpty(assemblyQualifiedName, nameof(assemblyQualifiedName));
+                        loggingPlugins.Add(assemblyQualifiedName);
+                    }
+
+                    string serializedContext = Console.ReadLine();
+                    ArgUtil.NotNullOrEmpty(serializedContext, nameof(serializedContext));
+
+                    AgentLoggingPluginExecutionContext executionContext = StringUtil.ConvertFromJson<AgentLoggingPluginExecutionContext>(serializedContext);
+                    ArgUtil.NotNull(executionContext, nameof(executionContext));
+
+                    if (loggingPlugins.Count == 0)
+                    {
+                        return 0;
+                    }
+                    else
+                    {
+                        AssemblyLoadContext.Default.Resolving += ResolveAssembly;
+                        try
+                        {
+                            foreach (var plugin in loggingPlugins)
+                            {
+                                Type type = Type.GetType(plugin, throwOnError: true);
+                                var loggingPlugin = Activator.CreateInstance(type) as IAgentLoggingPlugin;
+                                ArgUtil.NotNull(loggingPlugin, nameof(loggingPlugin));
+                                executionContext.Plugins.Add(loggingPlugin);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // any exception throw from plugin will fail the command.
+                            executionContext.Error(ex.ToString());
+                        }
+                        finally
+                        {
+                            AssemblyLoadContext.Default.Resolving -= ResolveAssembly;
+                        }
+
+                        return executionContext.Run().GetAwaiter().GetResult();
+                    }
                 }
                 else
                 {
