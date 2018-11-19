@@ -39,6 +39,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             + "<system-err><![CDATA[]]></system-err>"
             + "</testsuite>";
 
+        private const string _jUnitNestedResultsXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+            + "<testsuites>"
+            + "<testsuite name=\"com.contoso.billingservice.ConsoleMessageRendererTest\" errors=\"0\" failures=\"1\" skipped=\"0\" tests=\"2\" time=\"0.006\" timestamp=\"2015-04-06T21:56:24\">"
+            + "<testsuite errors=\"0\" failures=\"1\" hostname=\"mghost\" name=\"com.contoso.billingservice.ConsoleMessageRendererTest\" skipped=\"0\" tests=\"2\" time=\"0.006\" timestamp=\"2015-04-06T21:56:24\">"
+            + "<testcase classname=\"com.contoso.billingservice.ConsoleMessageRendererTest\" name=\"testRenderNullMessage\" testType=\"asdasdas\" time=\"0.001\" />"
+            + "<testcase classname=\"com.contoso.billingservice.ConsoleMessageRendererTest\" name=\"testRenderMessage\" time=\"0.003\">"
+            + "<failure type=\"junit.framework.AssertionFailedError\">junit.framework.AssertionFailedError at com.contoso.billingservice.ConsoleMessageRendererTest.testRenderMessage(ConsoleMessageRendererTest.java:11)"
+            + "</failure>"
+            + "</testcase >"
+            + "<system-out><![CDATA[Hello World!]]>"
+            + "</system-out>"
+            + "<system-err><![CDATA[]]></system-err>"
+            + "</testsuite>"
+            + "</testsuite>"
+            + "</testsuites>";
+
         private const string _sampleJunitResultXmlInvalidTime = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
             + "<testsuite errors = \"0\" failures=\"0\" hostname=\"achalla-dev\" name=\"test.AllTests\" skipped=\"0\" tests=\"1\" time=\"NaN\" timestamp=\"2015-09-01T10:19:04\">"
             + "<properties>"
@@ -360,6 +376,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
             Assert.Equal("releaseUri", _testRunData.ReleaseUri);
             Assert.Equal("releaseEnvironmentUri", _testRunData.ReleaseEnvironmentUri);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "PublishTestResults")]
+        public void PublishBasicNestedJUnitResults()
+        {
+            SetupMocks();
+            _junitResultsToBeRead = _jUnitNestedResultsXml;
+            ReadResults(new TestRunContext("owner", "platform", "configuration", 1, "buildUri", "releaseUri", "releaseEnvironmentUri"));
+            
+            Assert.IsNotNull(_testRunData);
+            Assert.AreEqual(2, _testRunData.Results.Length);
+            Assert.AreEqual(1, _testRunData.Results.Count(r => r.Outcome.Equals("Passed")));
+            Assert.AreEqual(null, _testRunData.Results[0].AutomatedTestId);
+            Assert.AreEqual(null, _testRunData.Results[0].AutomatedTestTypeId);
+            Assert.AreEqual(1, _testRunData.Results.Count(r => r.Outcome.Equals("Failed")));
+            Assert.AreEqual("com.contoso.billingservice.ConsoleMessageRendererTest", _testRunData.Name);
+            Assert.AreEqual("releaseUri", _testRunData.ReleaseUri);
+            Assert.AreEqual("releaseEnvironmentUri", _testRunData.ReleaseEnvironmentUri);
         }
 
         [Fact]
