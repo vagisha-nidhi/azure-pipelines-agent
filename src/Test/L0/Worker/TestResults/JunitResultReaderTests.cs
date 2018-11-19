@@ -386,16 +386,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             SetupMocks();
             _junitResultsToBeRead = _jUnitNestedResultsXml;
             ReadResults(new TestRunContext("owner", "platform", "configuration", 1, "buildUri", "releaseUri", "releaseEnvironmentUri"));
-            
-            Assert.IsNotNull(_testRunData);
-            Assert.AreEqual(2, _testRunData.Results.Length);
-            Assert.AreEqual(1, _testRunData.Results.Count(r => r.Outcome.Equals("Passed")));
-            Assert.AreEqual(null, _testRunData.Results[0].AutomatedTestId);
-            Assert.AreEqual(null, _testRunData.Results[0].AutomatedTestTypeId);
-            Assert.AreEqual(1, _testRunData.Results.Count(r => r.Outcome.Equals("Failed")));
-            Assert.AreEqual("com.contoso.billingservice.ConsoleMessageRendererTest", _testRunData.Name);
-            Assert.AreEqual("releaseUri", _testRunData.ReleaseUri);
-            Assert.AreEqual("releaseEnvironmentUri", _testRunData.ReleaseEnvironmentUri);
+
+            Assert.NotNull(_testRunData);
+            Assert.Equal(2, _testRunData.Results.Length);
+            Assert.Equal(1, _testRunData.Results.Count(r => r.Outcome.Equals("Passed")));
+            Assert.Equal(null, _testRunData.Results[0].AutomatedTestId);
+            Assert.Equal(null, _testRunData.Results[0].AutomatedTestTypeId);
+            Assert.Equal(1, _testRunData.Results.Count(r => r.Outcome.Equals("Failed")));
+            Assert.Equal("com.contoso.billingservice.ConsoleMessageRendererTest", _testRunData.Name);
+            Assert.Equal("releaseUri", _testRunData.ReleaseUri);
+            Assert.Equal("releaseEnvironmentUri", _testRunData.ReleaseEnvironmentUri);
         }
 
         [Fact]
