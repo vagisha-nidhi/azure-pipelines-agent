@@ -311,7 +311,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
             foreach(var testCaseResultData in testRunData.Results)
             {
-                if(testCaseResultData.Outcome == TestOutcome.Failed.ToString())
+                if(testCaseResultData.Outcome == TestOutcome.Failed.ToString() || testCaseResultData.Outcome == TestOutcome.Aborted.ToString())
                 {
                     return true;
                 }
