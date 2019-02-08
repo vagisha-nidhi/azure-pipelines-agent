@@ -101,17 +101,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private void ParseRunStartAndFinishDates(XmlNode node)
         {
             int startTime, endTime;
-            if (int.TryParse(node.SelectSingleNode("./StartTestTime")?.InnerText, out startTime) && int.TryParse(node.SelectSingleNode("./EndTestTime")?.InnerText, out endTime))
+            if (int.TryParse(node.SelectSingleNode("./StartTestTime")?.InnerText, out startTime) && int.TryParse(node.SelectSingleNode("./EndTestTime")?.InnerText, out endTime)
+                && startTime>0 && endTime>0)
             {
                 _ec.Debug("Setting run start and finish times.");
 
-                _runStartDate = (new System.DateTime(1970, 1, 1, 0, 0, 0, 0)).AddSeconds(startTime);
-                _runFinishDate = (new System.DateTime(1970, 1, 1, 0, 0, 0, 0)).AddSeconds(endTime);
+                _runStartDate = (new System.DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)).AddSeconds(startTime);
+                _runFinishDate = (new System.DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)).AddSeconds(endTime);
 
                 if (_runFinishDate < _runStartDate)
                 {
                     _runFinishDate = _runStartDate = DateTime.MinValue;
-                    _ec.Debug("Run finish date is less than start date.Resetting to min value.");
+                    _ec.Warning("Run finish date is less than start date.Resetting to min value.");
                 }
             }
         }
@@ -127,53 +128,46 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             List<TestCaseResultData> results = new List<TestCaseResultData>();
             var resultXmlNodes = resultsNodes.Cast<XmlNode>();
 
-            foreach (var resultNode in resultXmlNodes)
+            foreach (var testCaseNode in resultXmlNodes)
             {
                 TestCaseResultData resultCreateModel = new TestCaseResultData();
 
                 // find test case title and other information
-                resultCreateModel.TestCaseTitle = resultNode.SelectSingleNode("./Name")?.InnerText;
-                resultCreateModel.AutomatedTestName = resultNode.SelectSingleNode("./FullName")?.InnerText;
-                resultCreateModel.AutomatedTestStorage = resultNode.SelectSingleNode("./Path")?.InnerText;
+                resultCreateModel.TestCaseTitle = testCaseNode.SelectSingleNode("./Name")?.InnerText;
+                resultCreateModel.AutomatedTestName = testCaseNode.SelectSingleNode("./FullName")?.InnerText;
+                resultCreateModel.AutomatedTestStorage = testCaseNode.SelectSingleNode("./Path")?.InnerText;
                 resultCreateModel.AutomatedTestType = ParserName;
 
                 // find duration of test case, starttime and endtime
-                resultCreateModel.DurationInMs = (long)GetTestCaseResultDuration(resultNode).TotalMilliseconds;
+                resultCreateModel.DurationInMs = (long)GetTestCaseResultDuration(testCaseNode).TotalMilliseconds;
 
                 // start time of test case is kept as run start time sice test case start is not available
                 resultCreateModel.StartedDate = _runStartDate;
                 resultCreateModel.CompletedDate = resultCreateModel.StartedDate.AddMilliseconds(resultCreateModel.DurationInMs);
 
                 // find test case outcome
-                resultCreateModel.Outcome = GetTestCaseOutcome(resultNode).ToString();
+                resultCreateModel.Outcome = GetTestCaseOutcome(testCaseNode).ToString();
 
                 // If test outcome is failed, fill stacktrace and error message
                 if (resultCreateModel.Outcome.ToString().Equals(TestOutcome.Failed.ToString()))
                 {
                     XmlNode failure;
                     // Stacktrace
-                    if ((failure = resultNode.SelectSingleNode("./Results/Measurement/Value")) != null)
+                    if ((failure = testCaseNode.SelectSingleNode("./Results/Measurement/Value")) != null)
                     {
                         if (!string.IsNullOrEmpty(failure.InnerText))
                             resultCreateModel.StackTrace = failure.InnerText;
                     }
-
-                    // Error Message
-                    // Get exit code and exit value
-                    XmlNode exitCodeNode, exitValueNode;
-                    if ((exitCodeNode = resultNode.SelectSingleNode("./Results/NamedMeasurement[@name='Exit Code']/Value")) != null &&
-                        (exitValueNode = resultNode.SelectSingleNode("./Results/NamedMeasurement[@name='Exit Value']/Value")) != null)
-                    {
-                        resultCreateModel.ErrorMessage = $"Process exited with exit code {exitCodeNode.InnerText} and exit value {exitValueNode.InnerText}";
-                    }
                 }
-
-                // fill console logs
-                resultCreateModel.AttachmentData = new AttachmentData();
-                XmlNode stdOutputLog = resultNode.SelectSingleNode("./Results/Measurement/Value");
-                if (!string.IsNullOrEmpty(stdOutputLog?.InnerText))
+                else
                 {
-                    resultCreateModel.AttachmentData.ConsoleLog = stdOutputLog.InnerText;
+                    // fill console logs
+                    resultCreateModel.AttachmentData = new AttachmentData();
+                    XmlNode stdOutputLog = testCaseNode.SelectSingleNode("./Results/Measurement/Value");
+                    if (!string.IsNullOrEmpty(stdOutputLog?.InnerText))
+                    {
+                        resultCreateModel.AttachmentData.ConsoleLog = stdOutputLog.InnerText;
+                    }
                 }
 
                 resultCreateModel.State = "Completed";
@@ -201,11 +195,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// </summary>
         /// <param name="resultsNode"></param>
         /// <returns>Test case duration</returns>
-        private TimeSpan GetTestCaseResultDuration(XmlNode resultNode)
+        private TimeSpan GetTestCaseResultDuration(XmlNode testCaseNode)
         {
             TimeSpan testCaseDuration = TimeSpan.Zero;
             XmlNode executionTime;
-            if ((executionTime = resultNode.SelectSingleNode("./Results/NamedMeasurement[@name='Execution Time']/Value")) != null)
+            if ((executionTime = testCaseNode.SelectSingleNode("./Results/NamedMeasurement[@name='Execution Time']/Value")) != null)
             {
                 double.TryParse(executionTime.InnerText, NumberStyles.Any, NumberFormatInfo.InvariantInfo, out double duration);
                 // Duration of a test case cannot be less than zero
@@ -220,14 +214,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// </summary>
         /// <param name="resultsNode"></param>
         /// <returns>Test case outcome</returns>
-        private TestOutcome GetTestCaseOutcome(XmlNode resultNode)
+        private TestOutcome GetTestCaseOutcome(XmlNode testCaseNode)
         {
-            if (resultNode.Attributes == null)
+            if (testCaseNode.Attributes == null)
             {
                 return TestOutcome.NotExecuted;
             }
 
-            string outcome = resultNode.Attributes["Status"].Value;
+            string outcome = testCaseNode.Attributes["Status"].Value;
             if (string.Equals(outcome, "passed", StringComparison.OrdinalIgnoreCase))
             {
                 return TestOutcome.Passed;

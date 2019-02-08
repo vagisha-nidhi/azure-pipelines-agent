@@ -169,18 +169,55 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Results
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "PublishResults")]
-        public void VerifyStackTraceAndErrorMessageForFailedTest()
+        public void VerifyStackTraceForFailedTest()
         {
             SetupMocks();
             _cResultsToBeRead = _cTestSimpleResultXmlWithFailedTest;
             string expectedStackTrace = "-- Download of file://\\abc-mang.md5.txtfailed with message: [37]\"couldn't read a file:// file\"CMake Error at modules/Logging.cmake:121 (message):test BAR_wget_file succeed: result is \"OFF\" instead of \"ON\"Call Stack (most recent call first):modules/Test.cmake:74 (BAR_msg_fatal)modules/testU/WGET-testU-noMD5.cmake:14 (BAR_check_equal)";
-            string expectedErrorMessage = "Process exited with exit code Failed and exit value 1";
 
             ReadResults(new TestRunContext("owner", "platform", "configuration", 1, "buildUri", "releaseUri", "releaseEnvironmentUri"));
 
             Assert.Equal(expectedStackTrace, _testRunData.Results[0].StackTrace);
-            Assert.Equal(expectedErrorMessage, _testRunData.Results[0].ErrorMessage);
+        }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "PublishResults")]
+        public void VerifyTestRunTimeIsEmptyIfTimestampIsNotParseable()
+        {
+            SetupMocks();
+            _cResultsToBeRead = _cTestResultXmlWithNegativeTimeStamp;
+
+            ReadResults(new TestRunContext("owner", "platform", "configuration", 1, "buildUri", "releaseUri", "releaseEnvironmentUri"));
+
+            Assert.Equal(string.Empty, _testRunData.StartDate);
+            Assert.Equal(string.Empty, _testRunData.CompleteDate);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "PublishResults")]
+        public void VerifyTestRunTimeIsSetToZeroIfDurationIsNegative()
+        {
+            SetupMocks();
+            _cResultsToBeRead = _cTestResultXmlWithNegativeDuration;
+
+            ReadResults(new TestRunContext("owner", "platform", "configuration", 1, "buildUri", "releaseUri", "releaseEnvironmentUri"));
+
+            Assert.Equal(0, _testRunData.Results[0].DurationInMs);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "PublishResults")]
+        public void VerifyTestRunTimeIsSetToUTCTime()
+        {
+            SetupMocks();
+            _cResultsToBeRead = _cTestSimpleResultXmlWithLocalTime;
+
+            ReadResults(new TestRunContext("owner", "platform", "configuration", 1, "buildUri", "releaseUri", "releaseEnvironmentUri"));
+
+            Assert.Equal("2019-01-03T12:21:19.0000000Z", _testRunData.StartDate);
         }
 
         private void SetupMocks([CallerMemberName] string name = "")
@@ -568,6 +605,140 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Results
             + "</Test>"
             + "<EndDateTime>May 15 10:37 PDT</EndDateTime>"
             + "<EndTestTime>1526405879</EndTestTime>"
+            + "<ElapsedMinutes>6</ElapsedMinutes>"
+            + "</Testing>"
+            + "</Site>";
+
+        private const string _cTestResultXmlWithNegativeTimeStamp = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+            + "<Site BuildName=\"(empty)\" BuildStamp=\"20180515-1731-Experimental\" Name=\"(empty)\" Generator=\"ctest-3.11.0\" "
+            + "CompilerName=\"\" CompilerVersion=\"\" OSName=\"Linux\" Hostname=\"3tnavBuild\" OSRelease=\"4.4.0-116-generic\" "
+            + "OSVersion=\"#140-Ubuntu SMP Mon Feb 12 21:23:04 UTC 2018\" OSPlatform=\"x86_64\" Is64Bits=\"1\">"
+            + "<Testing>"
+            + "<StartDateTime>May 15 10:31 PDT</StartDateTime>"
+            + "<StartTestTime>-1526405497</StartTestTime>"
+            + "<TestList>"
+            + "<Test>./libs/MgmtVisualization/tests/loggingSinkRandomTests.loggingSinkRandomTest_CallLoggingCallback</Test>"
+            + "</TestList>"
+            + "<Test Status =\"passed\">"
+            + "<Name>loggingSinkRandomTests.loggingSinkRandomTest_CallLoggingCallback</Name>"
+            + "<Path>./libs/MgmtVisualization/tests</Path>"
+            + "<FullName>./libs/MgmtVisualization/tests/loggingSinkRandomTests.loggingSinkRandomTest_CallLoggingCallback</FullName>"
+            + "<FullCommandLine>D:/a/r1/a/libs/build_TNAV-dev_Pull-Request/build/libs/MgmtVisualization/tests/MgmtVisualizationTestPublicAPI \"--gtest_filter=loggingSinkRandomTests.loggingSinkRandomTest_CallLoggingCallback\"</FullCommandLine>"
+            + "<Results>"
+            + "<NamedMeasurement type =\"numeric/double\" name=\"Execution Time\">"
+            + "<Value>0.0074303</Value>"
+            + "</NamedMeasurement>"
+            + "<NamedMeasurement type =\"numeric/double\" name=\"Processors\">"
+            + "<Value>1</Value>"
+            + "</NamedMeasurement>"
+            + "<NamedMeasurement type =\"text/string\" name=\"Completion Status\">"
+            + "<Value>Completed</Value>"
+            + "</NamedMeasurement>"
+            + "<NamedMeasurement type =\"text/string\" name=\"Command Line\">"
+            + "<Value>D:/a/r1/a/libs/build_TNAV-dev_Pull-Request/build/libs/MgmtVisualization/tests/MgmtVisualizationTestPublicAPI \"--gtest_filter=loggingSinkRandomTests.loggingSinkRandomTest_CallLoggingCallback\"</Value>"
+            + "</NamedMeasurement>"
+            + "<Measurement>"
+            + "<Value>output : [----------] Global test environment set-up.</Value>"
+            + "</Measurement>"
+            + "</Results>"
+            + "</Test>"
+            + "<EndDateTime>May 15 10:37 PDT</EndDateTime>"
+            + "<EndTestTime>1526405879</EndTestTime>"
+            + "<ElapsedMinutes>6</ElapsedMinutes>"
+            + "</Testing>"
+            + "</Site>";
+
+        private const string _cTestResultXmlWithNegativeDuration = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+            + "<Site BuildName=\"(empty)\" BuildStamp=\"20180515-1731-Experimental\" Name=\"(empty)\" Generator=\"ctest-3.11.0\" "
+            + "CompilerName=\"\" CompilerVersion=\"\" OSName=\"Linux\" Hostname=\"3tnavBuild\" OSRelease=\"4.4.0-116-generic\" "
+            + "OSVersion=\"#140-Ubuntu SMP Mon Feb 12 21:23:04 UTC 2018\" OSPlatform=\"x86_64\" Is64Bits=\"1\">"
+            + "<Testing>"
+            + "<StartDateTime>May 15 10:31 PDT</StartDateTime>"
+            + "<StartTestTime>1526405497</StartTestTime>"
+            + "<TestList>"
+            + "<Test>./libs/MgmtVisualization/tests/loggingSinkRandomTests.loggingSinkRandomTest_CallLoggingCallback</Test>"
+            + "</TestList>"
+            + "<Test Status =\"passed\">"
+            + "<Name>loggingSinkRandomTests.loggingSinkRandomTest_CallLoggingCallback</Name>"
+            + "<Path>./libs/MgmtVisualization/tests</Path>"
+            + "<FullName>./libs/MgmtVisualization/tests/loggingSinkRandomTests.loggingSinkRandomTest_CallLoggingCallback</FullName>"
+            + "<FullCommandLine>D:/a/r1/a/libs/build_TNAV-dev_Pull-Request/build/libs/MgmtVisualization/tests/MgmtVisualizationTestPublicAPI \"--gtest_filter=loggingSinkRandomTests.loggingSinkRandomTest_CallLoggingCallback\"</FullCommandLine>"
+            + "<Results>"
+            + "<NamedMeasurement type =\"numeric/double\" name=\"Execution Time\">"
+            + "<Value>-0.0074303</Value>"
+            + "</NamedMeasurement>"
+            + "<NamedMeasurement type =\"numeric/double\" name=\"Processors\">"
+            + "<Value>1</Value>"
+            + "</NamedMeasurement>"
+            + "<NamedMeasurement type =\"text/string\" name=\"Completion Status\">"
+            + "<Value>Completed</Value>"
+            + "</NamedMeasurement>"
+            + "<NamedMeasurement type =\"text/string\" name=\"Command Line\">"
+            + "<Value>D:/a/r1/a/libs/build_TNAV-dev_Pull-Request/build/libs/MgmtVisualization/tests/MgmtVisualizationTestPublicAPI \"--gtest_filter=loggingSinkRandomTests.loggingSinkRandomTest_CallLoggingCallback\"</Value>"
+            + "</NamedMeasurement>"
+            + "<Measurement>"
+            + "<Value>output : [----------] Global test environment set-up.</Value>"
+            + "</Measurement>"
+            + "</Results>"
+            + "</Test>"
+            + "<EndDateTime>May 15 10:37 PDT</EndDateTime>"
+            + "<EndTestTime>1526405879</EndTestTime>"
+            + "<ElapsedMinutes>6</ElapsedMinutes>"
+            + "</Testing>"
+            + "</Site>";
+
+        private const string _cTestSimpleResultXmlWithLocalTime = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+            + "<Site BuildName=\"(empty)\" BuildStamp=\"20180515-1731-Experimental\" Name=\"(empty)\" Generator=\"ctest-3.11.0\" "
+            + "CompilerName=\"\" CompilerVersion=\"\" OSName=\"Linux\" Hostname=\"3tnavBuild\" OSRelease=\"4.4.0-116-generic\" "
+            + "OSVersion=\"#140-Ubuntu SMP Mon Feb 12 21:23:04 UTC 2018\" OSPlatform=\"x86_64\" Is64Bits=\"1\">"
+            + "<Testing>"
+            + "<StartDateTime>Jan 03 17:51 India Standard Time</StartDateTime>"
+            + "<StartTestTime>1546518079</StartTestTime>"
+            + "<TestList>"
+            + "<Test>./libs/MgmtVisualization/tests/loggingSinkRandomTests.loggingSinkRandomTest_CallLoggingCallback</Test>"
+            + "</TestList>"
+            + "<Test Status=\"failed\">"
+            + "<Name>WGET-testU-noMD5</Name>"
+            + "<Path>E_/foo/sources</Path>"
+            + "<FullName>E_/foo/sources/WGET-testU-noMD5</FullName>"
+            + "<FullCommandLine>E:\\Tools\\cmake\\cmake-2.8.11-rc4-win32-x86\\bin\\cmake.exe &quot;-DTEST_OUTPUT_DIR:PATH=E:/foo/build-vs2008-visual/_cmake/modules/testU_WGET&quot;"
+            + "&quot;-P&quot; &quot;E:/foo/sources/modules/testU/WGET-testU-noMD5.cmake&quot;</FullCommandLine>"
+            + "<Results>"
+            + "<NamedMeasurement type=\"text/string\" name=\"Exit Code\">"
+            + "<Value>Failed</Value>"
+            + "</NamedMeasurement>"
+            + "<NamedMeasurement type=\"text/string\" name=\"Exit Value\">"
+            + "<Value>1</Value>"
+            + "</NamedMeasurement>"
+            + "<NamedMeasurement type=\"numeric/double\" name=\"Execution Time\">"
+            + "<Value>0.0820084</Value>"
+            + "</NamedMeasurement>"
+            + "<NamedMeasurement type=\"text/string\" name=\"Completion Status\">"
+            + "<Value>Completed</Value>"
+            + "</NamedMeasurement>"
+            + "<NamedMeasurement type=\"text/string\" name=\"Command Line\">"
+            + "<Value>E:\\Tools\\cmake\\cmake-2.8.11-rc4-win32-x86\\bin\\cmake.exe &quot;-DTEST_OUTPUT_DIR:PATH=E:/foo/build-vs2008-visual/_cmake/modules/testU_WGET&quot;"
+            + "&quot;-P&quot; &quot;E:/foo/sources/modules/testU/WGET-testU-noMD5.cmake&quot;</Value>"
+            + "</NamedMeasurement>"
+            + "<Measurement>"
+            + "<Value>-- Download of file://\\abc-mang.md5.txt"
+            + "failed with message: [37]&quot;couldn&apos;t read a file:// file&quot;"
+            + "CMake Error at modules/Logging.cmake:121 (message):"
+            + ""
+            + ""
+            + "test BAR_wget_file succeed: result is &quot;OFF&quot; instead of &quot;ON&quot;"
+            + ""
+            + "Call Stack (most recent call first):"
+            + "modules/Test.cmake:74 (BAR_msg_fatal)"
+            + "modules/testU/WGET-testU-noMD5.cmake:14 (BAR_check_equal)"
+            + ""
+            + ""
+            + "</Value>"
+            + "</Measurement>"
+            + "</Results>"
+            + "</Test>"
+            + "<EndDateTime>Jan 03 17:51 India Standard Time</EndDateTime>"
+            + "<EndTestTime>1546518079</EndTestTime>"
             + "<ElapsedMinutes>6</ElapsedMinutes>"
             + "</Testing>"
             + "</Site>";
